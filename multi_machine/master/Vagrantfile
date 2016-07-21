@@ -1,0 +1,31 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+
+  config.vm.box = "geerlingguy/ubuntu1604"
+  config.vm.synced_folder "..", "/home/vagrant/shared"
+  config.vm.network "private_network", ip: "192.168.33.100"
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "4096"
+    vb.cpus = 4
+    vb.name = "citus-master-vm"
+  end
+
+  config.vm.provision "shell", inline: <<-SHELL
+    /home/vagrant/shared/execute_all.sh
+    
+    echo "192.168.33.101 5432" | sudo -u postgres tee -a /var/lib/postgresql/9.5/main/pg_worker_list.conf
+    #echo "192.168.33.102 5432" | sudo -u postgres tee -a /var/lib/postgresql/9.5/main/pg_worker_list.conf
+    sudo service postgresql reload
+
+    sudo -i -u postgres psql test -c "SELECT * FROM master_get_active_worker_nodes();"
+    cat /home/vagrant/shared/schema.sql | sudo su postgres -c "psql test"
+    cat /home/vagrant/shared/master/master.sql | sudo su postgres -c "psql test"
+    # use copy to insert a lot of rows
+    sudo -u postgres psql test -c "copy (select n, 'txt_' || n from generate_series(1, 50000000) n) to stdout;" | sudo -u postgres psql test -c "copy table1 from stdin;"
+    sudo -u postgres psql test -c "select count(*) from table1;"
+
+  SHELL
+end

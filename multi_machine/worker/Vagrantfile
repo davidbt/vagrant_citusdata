@@ -1,0 +1,21 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+
+  config.vm.box = "geerlingguy/ubuntu1604"
+  config.vm.synced_folder "..", "/home/vagrant/shared"
+  config.vm.network "private_network", ip: "192.168.33.101"
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "1024"
+    vb.cpus = 4
+    vb.name = "citus-worker1-vm"
+  end
+
+  config.vm.provision "shell", inline: <<-SHELL
+    /home/vagrant/shared/execute_all.sh
+    cat /home/vagrant/shared/schema.sql | sudo su postgres -c "psql test"
+    echo "DONE NODE"
+  SHELL
+end
